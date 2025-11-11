@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Logs
+.log
+
+# Python specific
+*.pyc
+
+# Data and model files (don't store large datasets or model weights in git)
+/src/mnist/data/
+*.npy
+*.npz
+
+# Coverage
+.coverage
+.pytest_cache/
