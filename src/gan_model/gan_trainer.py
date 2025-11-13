@@ -10,9 +10,6 @@ from ..utils.helpers import fid
 from ..utils.data_handler import TrainingData
 
 
-rng = np.random.default_rng(1111)
-
-
 # ----------------------------------------
 #            GAN TRAINER
 # ----------------------------------------
@@ -178,8 +175,6 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
             disc_optimizer (GradientOptimizer): Optimizer for the discriminator.
             d_steps_per_one_g_step (int, optional): Number of discriminator steps per generator step
                                                     Defaults to 1.
-            rand_gen (np.random.Generator, optional): Random number generator. 
-                                                      Defaults to rng.
 
         Returns:
             tuple[float, float]: A tuple containing:

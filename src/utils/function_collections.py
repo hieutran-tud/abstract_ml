@@ -56,3 +56,10 @@ leaky_logistic = RealDifferentialFunc(lambda x: 0.05*x + logistic(x),
 
 soft_leaky = RealDifferentialFunc(lambda x: 0.1*x + softplus(x),
                                   lambda x: 0.1 + logistic(x))
+
+linear_units: list[RealDifferentialFunc] = [
+    relu, swish, leaky_relu, soft_leaky, softplus]
+
+sigmoids: list[RealDifferentialFunc] = [
+    logistic, tanh, leaky_tanh, leaky_logistic]
+

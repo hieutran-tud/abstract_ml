@@ -43,6 +43,8 @@ class Discriminator:
     model: ParameterizedModel
 
     def __init__(self, model: ParameterizedModel) -> None:
+        if model.output_dim != 1:
+            raise ValueError("Discriminator model must have output dimension of 1.")
         self.model = model
 
 

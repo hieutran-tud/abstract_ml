@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABC
 from typing import override
 import numpy as np
+
 from ..general_model.parameterized_model import ParameterizedModel
 from ..general_model.optimizer import Adam, GradientOptimizer
 from ..general_model.validation import ValidatableTrainingModel
@@ -193,7 +194,7 @@ class LinearRegressionModel(RegressionModel):
         """
         n_samples = x_train.shape[0]
         x_with_bias = np.hstack([x_train, np.ones((n_samples, 1))])
-        params, _, _, _ = np.linalg.lstsq(x_with_bias, y_train)
+        params, _, _, _ = np.linalg.lstsq(x_with_bias, y_train, rcond=None)
         self.weights = params[:-1]
         self.bias = params[-1]
 

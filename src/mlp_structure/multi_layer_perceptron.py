@@ -52,9 +52,6 @@ class MultiLayerPerceptron(ParameterizedModel):
         self.params = np.empty(len(initial_params), dtype=object)
         self.params[:] = initial_params
 
-
-
-
     def _forward_internal_pass(
         self,
         x: np.ndarray
@@ -62,14 +59,16 @@ class MultiLayerPerceptron(ParameterizedModel):
         activations_aug: list[np.ndarray] = []
         pre_activations: list[np.ndarray] = []
         activation_funcs = self.activation_func_list + [func.identity]
-        a_current = np.insert(x, x.shape[1], 1, axis=1)
+        
+        ones = np.ones((x.shape[0], 1), dtype=x.dtype)
+        a_current = np.concatenate([x, ones], axis=1)
 
         for _, (param, activation_func) in enumerate(zip(self.params, activation_funcs)):
             activations_aug.append(a_current)
             z = a_current @ param
             pre_activations.append(z)
             a_current = activation_func(z)
-            a_current = np.insert(a_current, a_current.shape[1], 1, axis=1)
+            a_current = np.concatenate([a_current, ones], axis=1)
 
         return activations_aug, pre_activations
 
@@ -86,7 +85,6 @@ class MultiLayerPerceptron(ParameterizedModel):
     ) -> np.ndarray:
         activations_aug, pre_activations = self._forward_internal_pass(x)
 
-        batch_size = x.shape[0]
         deltas: list[np.ndarray] = [np.empty(0)] * len(self.params)
         deltas[-1] = dloss_doutput
 
@@ -95,8 +93,7 @@ class MultiLayerPerceptron(ParameterizedModel):
                 deltas[l] @ self.params[l].T[:, :-1]
                 * self.activation_func_list[l - 1].derivative(pre_activations[l - 1])
             )
-        gradient_params = [(activations_aug[l].T @ deltas[l]) /
-                           batch_size
+        gradient_params = [(activations_aug[l].T @ deltas[l])
                            for l in range(len(self.params))]
         gradient_array = np.empty(len(gradient_params), dtype=object)
         gradient_array[:] = gradient_params
