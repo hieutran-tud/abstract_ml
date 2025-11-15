@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import override
 import numpy as np
-from ..general_model.optimizer import Adam, GradientOptimizer
+from ..general_model.optimizer import GradientOptimizer
 from ..general_model.parameterized_model import ParameterizedModel
 from ..general_model.validation import ValidatableTrainingModel
 from ..utils.data_handler import TrainingData
@@ -71,9 +71,9 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
     
     Attributes:
         model (ParameterizedModel): The underlying parameterized model for logits computation.
+        optimizer (GradientOptimizer): The gradient descent optimizer used for training.
     """
 
-    model: ParameterizedModel
 
 
     @override
@@ -99,9 +99,11 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
 
 
     def __init__(self,
-                 model: ParameterizedModel
+                 model: ParameterizedModel,
+                 optimizer: GradientOptimizer
                  ) -> None:
         self.model = model
+        self.optimizer = optimizer
         super().__init__(model.output_dim())
 
     @staticmethod
@@ -193,7 +195,7 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
                     training_data_handler: TrainingData,
                     batch_size: int,
                     *,
-                    optimizer: GradientOptimizer | None = None,
+                    learning_rate: float = 0.001,
                     **_) -> np.floating:
         """
         Train the model for one epoch.
@@ -205,15 +207,14 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
         Args:
             training_data_handler (TrainingData): an object for managing the training data.
             batch_size (int): Size of each training batch.
-            optimizer (GradientOptimizer): Optimizer for updating model parameters.
+            learning_rate (float, optional): Learning rate for the optimizer.
+                                             Defaults to 0.001.
             
         Returns:
             float: Average loss over the epoch.
         """
         total_loss: np.floating = np.float64(0)
         shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-        if optimizer is None:
-            optimizer = Adam(0.001)
         for (x_data, y_true) in shuffled_batches:
             logits = self.model.forward(x_data)
             loss = self.compute_loss_by_logits(y_true, logits)
@@ -221,7 +222,7 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
                 y_true, logits)
             grad_params = self.model.loss_gradient_by_param(
                 x_data, dloss_dlogits)
-            optimizer.stepwise_update(self.model, grad_params)
+            self.optimizer.stepwise_update(learning_rate, self.model, grad_params)
             total_loss += loss
         return total_loss / len(shuffled_batches)
 
@@ -230,7 +231,7 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
                           y_train: np.ndarray,
                           epochs: int,
                           batch_size: int,
-                          optimizer: GradientOptimizer,
+                          learning_rate: float = 0.001,
                           validation_ratio: float = 0,
                           rand_gen: np.random.Generator = rng
                           ) -> tuple[list[np.floating], list[float]]:
@@ -259,7 +260,7 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
             training_data_handler,
             early_stopper,
             batch_size,
-            optimizer=optimizer
+            learning_rate=learning_rate
         )
 
     @override

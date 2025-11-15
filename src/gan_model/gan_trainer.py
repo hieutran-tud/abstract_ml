@@ -2,7 +2,7 @@ from typing import Callable, override
 import numpy as np
 from ..general_model.parameterized_model import ParameterizedModel
 from .gan_components import Generator, Discriminator
-from ..general_model.optimizer import Adam, GradientOptimizer
+from ..general_model.optimizer import GradientOptimizer
 from ..general_model.validation import ValidatableTrainingModel
 from .noise_generator import NoiseSampler
 from ..utils.function_collections import logistic, softplus
@@ -26,11 +26,9 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         generator (Generator): The generator model.
         discriminator (Discriminator): The discriminator model.
         noise_sampler (NoiseSampler): The noise sampler for generating latent vectors.
+        gen_optimizer (GradientOptimizer): The optimizer for the generator.
+        disc_optimizer (GradientOptimizer): The optimizer for the discriminator.
     """
-
-    generator: Generator
-    discriminator: Discriminator
-    noise_sampler: NoiseSampler
 
     @staticmethod
     def discriminator_grads_given_logits(
@@ -108,10 +106,15 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
 
     def __init__(self, gen_model: ParameterizedModel,
                  disc_model: ParameterizedModel,
-                 noise_sampler: NoiseSampler) -> None:
+                 noise_sampler: NoiseSampler,
+                 gen_optimizer: GradientOptimizer,
+                 disc_optimizer: GradientOptimizer
+                 ) -> None:
         self.generator = Generator(gen_model)
         self.discriminator = Discriminator(disc_model)
         self.noise_sampler = noise_sampler
+        self.gen_optimizer = gen_optimizer
+        self.disc_optimizer = disc_optimizer
 
     @override
     def get_parameters(self) -> tuple[np.ndarray, np.ndarray]:
@@ -158,8 +161,8 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         training_data_handler: TrainingData,
         batch_size: int,
         *,
-        gen_optimizer: GradientOptimizer | None = None,
-        disc_optimizer: GradientOptimizer | None = None,
+        gen_learning_rate: float = 0.001,
+        disc_learning_rate: float = 0.001,
         d_steps_per_one_g_step: int = 1,
         **_
     ) -> tuple[float, float]:
@@ -171,12 +174,10 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         Args:
             training_data_handler (TrainingData): an object for managing the training data
             batch_size (int): Minibatch size for real data and latent noise
-            gen_optimizer (GradientOptimizer | None): Optimizer for the generator.
-                                                      If None, defaults to Adam with lr=0.001.
-                                                      Defaults to None.
-            disc_optimizer (GradientOptimizer | None): Optimizer for the discriminator.
-                                                       If None, defaults to Adam with lr=0.001.
-                                                       Defaults to None.
+            gen_learning_rate (float): learning rate for the generator's optimizer
+                                       Defaults to 0.001
+            disc_learning_rate (float): learning rate for the discriminator's optimizer
+                                        Defaults to 0.001
             d_steps_per_one_g_step (int, optional): Number of discriminator steps per generator step
                                                     Defaults to 1.
 
@@ -190,11 +191,6 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         gen_losses: list[float] = []
 
         shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-
-        if disc_optimizer is None:
-            disc_optimizer = Adam(0.001)
-        if gen_optimizer is None:
-            gen_optimizer = Adam(0.001)
 
         for (x_real,) in shuffled_batches:
             batch_size = x_real.shape[0]
@@ -217,7 +213,8 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
                     x_fake, disc_grad_fake)
 
                 total_grads_phi = grads_phi_real + grads_phi_fake
-                disc_optimizer.stepwise_update(
+                self.disc_optimizer.stepwise_update(
+                    disc_learning_rate,
                     self.discriminator.model,
                     total_grads_phi
                 )
@@ -239,7 +236,8 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
             grad_theta = self.generator.model.loss_gradient_by_param(
                 z, grad_disc_input)
 
-            gen_optimizer.stepwise_update(
+            self.gen_optimizer.stepwise_update(
+                gen_learning_rate,
                 self.generator.model,
                 grad_theta
             )

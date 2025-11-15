@@ -13,6 +13,7 @@ class GradientOptimizer(ABC):
     @abstractmethod
     def stepwise_update(
         self,
+        learning_rate: float,
         model: ParameterizedModel,
         param_gradients: np.ndarray
     ) -> None:
@@ -20,6 +21,7 @@ class GradientOptimizer(ABC):
         Perform a stepwise update of the model's parameters using the provided gradients.
 
         Args:
+            learning_rate (float): The learning rate for the update.
             model (ParameterizedModel): The model to be updated.
             param_gradients (np.ndarray): The gradients of the model's parameters, dtype Any.
         """
@@ -43,28 +45,21 @@ class SGD(GradientOptimizer):
         new_params = old_params - learning_rate * param_gradients
     For deterministic full-batch gradient descent, 
     set the batch size at utils.data_handler.TrainingData to the entire dataset.
-
-    Attributes:
-        learning_rate (float): The learning rate for the optimizer.
     """
-
-    learning_rate: float
-
-    def __init__(self, learning_rate: float) -> None:
-        self.learning_rate = learning_rate
 
     @override
     def stepwise_update(
         self,
+        learning_rate: float,
         model: ParameterizedModel,
         param_gradients: np.ndarray
     ) -> None:
-        new_params = model.get_parameter() - self.learning_rate * param_gradients
+        new_params = model.get_parameter() - learning_rate * param_gradients
         model.set_parameter(new_params)
 
     @override
     def copy(self) -> SGD:
-        return SGD(learning_rate=self.learning_rate)
+        return SGD()
 
 
 class Adam(GradientOptimizer):
@@ -75,7 +70,6 @@ class Adam(GradientOptimizer):
     Should not work with full-batch sampling.
 
     Attributes:
-        learning_rate (float): The learning rate for the optimizer.
         beta1 (float): Exponential decay rate for the first moment estimates.
         beta2 (float): Exponential decay rate for the second moment estimates.
         epsilon (float): Small constant to prevent division by zero.
@@ -84,7 +78,6 @@ class Adam(GradientOptimizer):
         t (int): Time step counter.
     """
 
-    learning_rate: float
     beta1: float
     beta2: float
     epsilon: float
@@ -92,15 +85,12 @@ class Adam(GradientOptimizer):
     v: np.ndarray | float
     t: int
 
-
     def __init__(
         self,
-        learning_rate: float,
         beta1: float = 0.9,
         beta2: float = 0.999,
         epsilon: float = 1e-8
     ) -> None:
-        self.learning_rate = learning_rate
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
@@ -108,10 +98,10 @@ class Adam(GradientOptimizer):
         self.v = 0
         self.t = 0
 
-
     @override
     def stepwise_update(
         self,
+        learning_rate: float,
         model: ParameterizedModel,
         param_gradients: np.ndarray
     ) -> None:
@@ -121,10 +111,9 @@ class Adam(GradientOptimizer):
         self.v = self.beta2 * self.v + (1 - self.beta2) * param_gradients**2
         m_hat = self.m / (1 - self.beta1**self.t)
         v_hat = self.v / (1 - self.beta2**self.t)
-        new_params = params - self.learning_rate * \
+        new_params = params - learning_rate * \
             m_hat / (v_hat**0.5 + self.epsilon)
         model.set_parameter(new_params)
-
 
     @override
     def reset(self) -> None:
@@ -132,11 +121,9 @@ class Adam(GradientOptimizer):
         self.v = 0
         self.t = 0
 
-
     @override
     def copy(self) -> Adam:
         new_optimizer = Adam(
-            learning_rate=self.learning_rate,
             beta1=self.beta1,
             beta2=self.beta2,
             epsilon=self.epsilon

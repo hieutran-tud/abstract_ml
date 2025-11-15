@@ -21,24 +21,24 @@ class NeuralRegressor(NonLinearRegressionModel):
                  hidden_layers: list[int],
                  activation: fc.RealDifferentialFunc = fc.leaky_relu,
                  rand_gen: np.random.Generator = rng
-    ) -> None:
+                 ) -> None:
         mlp_model = MultiLayerPerceptron(
             [input_dim] + hidden_layers + [output_dim],
             activation_func=activation,
             rand_gen=rand_gen
         )
-        super().__init__(mlp_model)
-
+        optimizer = Adam()
+        super().__init__(mlp_model, optimizer)
 
     def train_model(self,
-              x_train: np.ndarray,
-              y_train: np.ndarray,
-              epochs: int,
-              batch_size: int,
-              learning_rate: float = 0.001,
-              validation_ratio: float = 0,
-              rand_gen: np.random.Generator = rng
-              ) -> tuple[list[np.floating], list[float]]:
+                    x_train: np.ndarray,
+                    y_train: np.ndarray,
+                    epochs: int,
+                    batch_size: int,
+                    learning_rate: float = 0.001,
+                    validation_ratio: float = 0,
+                    rand_gen: np.random.Generator = rng
+                    ) -> tuple[list[np.floating], list[float]]:
         """
         Train the model using input data and target values.
         Args:
@@ -54,8 +54,9 @@ class NeuralRegressor(NonLinearRegressionModel):
             tuple[list, list[float]]: A tuple containing the training history (list of losses) 
                                       and validation loss history (list of losses).
         """
-        optimizer = Adam(learning_rate)
         training_data_handler = TrainingData(
             x_train, y_train, validation_ratio, rand_gen=rand_gen)
-        early_stopper = EarlyStopper(max_epochs=epochs, patience=max(5, epochs//10))
-        return super().train(training_data_handler, early_stopper, batch_size, optimizer=optimizer)
+        early_stopper = EarlyStopper(
+            max_epochs=epochs, patience=max(5, epochs//10))
+        return super().train(training_data_handler, early_stopper,
+                             batch_size, learning_rate=learning_rate)

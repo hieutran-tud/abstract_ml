@@ -25,7 +25,8 @@ class NeuralClassifier(ProbabilisticClassificationModel):
             activation_func=activation,
             rand_gen=rand_gen
         )
-        super().__init__(mlp_model)
+        optimizer = Adam()
+        super().__init__(mlp_model, optimizer)
 
 
     def train_model_with_labels(self,
@@ -55,7 +56,6 @@ class NeuralClassifier(ProbabilisticClassificationModel):
                                                 - the training loss (list of losses)
                                                 - the validation loss (list of accuracies).
         """
-        optimizer = Adam(learning_rate)
         return super().train_with_labels(x_train, y_train, epochs,
-                                         batch_size, optimizer,
+                                         batch_size, learning_rate,
                                          validation_ratio, rand_gen=rand_gen)

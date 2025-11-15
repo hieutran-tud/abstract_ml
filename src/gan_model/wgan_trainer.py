@@ -7,7 +7,7 @@ from typing import Callable, override
 
 import numpy as np
 
-from ..general_model.optimizer import Adam, GradientOptimizer
+from ..general_model.optimizer import GradientOptimizer
 from ..general_model.parameterized_model import ParameterizedModel
 from ..general_model.validation import TrainingData, ValidatableTrainingModel
 from ..utils.helpers import fid
@@ -24,11 +24,9 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         generator (Generator): The generator model.
         critic (Critic): The critic model (no logistic; outputs real scores).
         noise_sampler (NoiseSampler): The noise sampler for generating latent vectors.
+        gen_optimizer (GradientOptimizer): Optimizer for the generator.
+        critic_optimizer (GradientOptimizer): Optimizer for the critic.
     """
-
-    generator: Generator
-    critic: Critic
-    noise_sampler: NoiseSampler
 
     @staticmethod
     def critic_loss_given_scores(
@@ -109,10 +107,15 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
     def __init__(self,
                  gen_model: ParameterizedModel,
                  critic_model: ParameterizedModel,
-                 noise_sampler: NoiseSampler) -> None:
+                 noise_sampler: NoiseSampler,
+                 gen_optimizer: GradientOptimizer,
+                 critic_optimizer: GradientOptimizer
+                 ) -> None:
         self.generator = Generator(gen_model)
         self.critic = Critic(critic_model)
         self.noise_sampler = noise_sampler
+        self.gen_optimizer = gen_optimizer
+        self.critic_optimizer = critic_optimizer
 
     @override
     def get_parameters(self) -> tuple[np.ndarray, np.ndarray]:
@@ -148,8 +151,8 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         training_data_handler: TrainingData,
         batch_size: int,
         *,
-        gen_optimizer: GradientOptimizer | None = None,
-        critic_optimizer: GradientOptimizer | None = None,
+        gen_learning_rate: float = 0.0001,
+        disc_learning_rate: float = 0.0001,
         d_steps_per_one_g_step: int = 5,
         **_
     ) -> tuple[float, float]:
@@ -161,12 +164,10 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         Args:
             training_data_handler (TrainingData): an object for managing the training data
             batch_size (int): Minibatch size for real data and latent noise
-            gen_optimizer (GradientOptimizer | None): Optimizer for the generator.
-                                                      If None, defaults to Adam with lr=0.001.
-                                                      Defaults to None.
-            critic_optimizer (GradientOptimizer | None): Optimizer for the critic.
-                                                         If None, defaults to Adam with lr=0.001.
-                                                         Defaults to None.
+            gen_learning_rate (float): learning rate for the generator's optimizer
+                                       Defaults to 0.0001
+            disc_learning_rate (float): learning rate for the critic's optimizer
+                                        Defaults to 0.0001
             d_steps_per_one_g_step (int, optional): Number of critic steps per generator step
                                                     Defaults to 5.
 
@@ -179,11 +180,6 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         gen_losses: list[float] = []
 
         shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-
-        if critic_optimizer is None:
-            critic_optimizer = Adam(0.0001)
-        if gen_optimizer is None:
-            gen_optimizer = Adam(0.0001)
 
         for (x_real,) in shuffled_batches:
             b = x_real.shape[0]
@@ -208,7 +204,7 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
                     x_fake_d, crit_grad_fake)
                 total_grads_phi = grads_phi_real + grads_phi_fake
 
-                critic_optimizer.stepwise_update(
+                self.critic_optimizer.stepwise_update(disc_learning_rate,
                     self.critic.model, total_grads_phi)
 
                 self.critic.model.lipschitz_normalize()
@@ -229,7 +225,7 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
             grad_theta = self.generator.model.loss_gradient_by_param(
                 z_g, dloss_dx_fake)
 
-            gen_optimizer.stepwise_update(self.generator.model, grad_theta)
+            self.gen_optimizer.stepwise_update(gen_learning_rate,self.generator.model, grad_theta)
 
         avg_c_loss = float(np.mean(critic_losses)) if critic_losses else np.nan
         avg_g_loss = float(np.mean(gen_losses)) if gen_losses else np.nan

@@ -39,10 +39,14 @@ class NeuralGAN(GANTrainer):
             rand_gen=rand_gen
         )
         noise_sampler = GaussianNoiseSampler(latent_dim, 0, 1, rand_gen)
+        gen_optimizer = Adam()
+        disc_optimizer = Adam()
         super().__init__(
             gen_model=gen_mlp,
             disc_model=disc_mlp,
-            noise_sampler=noise_sampler
+            noise_sampler=noise_sampler,
+            gen_optimizer=gen_optimizer,
+            disc_optimizer=disc_optimizer
         )
 
     def train_model(
@@ -76,8 +80,6 @@ class NeuralGAN(GANTrainer):
         Returns:
             tuple[list, list[float]]: Training and validation losses for each epoch.
         """
-        gen_optimizer = Adam(learning_rate)
-        disc_optimizer = Adam(learning_rate)
         training_data_handler = TrainingData(
             real_data, validation_ratio=validation_ratio, rand_gen=rand_gen)
         early_stopper = EarlyStopper(max_epochs=epochs, patience=max(5, epochs//10))
@@ -86,8 +88,8 @@ class NeuralGAN(GANTrainer):
             early_stopper,
             batch_size,
             verbose,
-            gen_optimizer=gen_optimizer,
-            disc_optimizer=disc_optimizer,
+            gen_learning_rate=learning_rate,
+            disc_learning_rate=learning_rate,
             d_steps_per_one_g_step=d_steps_per_one_g_step,
         )
 
@@ -119,10 +121,14 @@ class NeuralWGAN(WGANTrainer):
             rand_gen=rand_gen
         )
         noise_sampler = GaussianNoiseSampler(latent_dim, 0, 1, rand_gen)
+        gen_optimizer = Adam()
+        critic_optimizer = Adam()
         super().__init__(
             gen_model=gen_mlp,
             critic_model=critic_mlp,
-            noise_sampler=noise_sampler
+            noise_sampler=noise_sampler,
+            gen_optimizer=gen_optimizer,
+            critic_optimizer=critic_optimizer
         )
 
     def train_model(
@@ -153,8 +159,6 @@ class NeuralWGAN(WGANTrainer):
         Returns:
             tuple[list, list[float]]: Training and validation losses for each epoch.
         """
-        gen_optimizer = Adam(learning_rate)
-        critic_optimizer = Adam(learning_rate)
         training_data_handler = TrainingData(
             real_data, validation_ratio=validation_ratio, rand_gen=rand_gen
         )
@@ -165,7 +169,7 @@ class NeuralWGAN(WGANTrainer):
             early_stopper,
             batch_size,
             verbose,
-            gen_optimizer=gen_optimizer,
-            critic_optimizer=critic_optimizer,
+            gen_learning_rate=learning_rate,
+            disc_learning_rate=learning_rate,
             d_steps_per_one_g_step=d_steps_per_one_g_step
         )

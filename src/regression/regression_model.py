@@ -3,7 +3,7 @@ from typing import override
 import numpy as np
 
 from ..general_model.parameterized_model import ParameterizedModel
-from ..general_model.optimizer import Adam, GradientOptimizer
+from ..general_model.optimizer import GradientOptimizer
 from ..general_model.validation import ValidatableTrainingModel
 from ..utils.data_handler import TrainingData
 
@@ -65,7 +65,6 @@ class NonLinearRegressionModel(RegressionModel, ValidatableTrainingModel[np.floa
         optimizer (GradientOptimizer): The gradient descent optimizer used for training.
     """
 
-    model: ParameterizedModel
 
     @staticmethod
     def grad_given_output(
@@ -85,8 +84,9 @@ class NonLinearRegressionModel(RegressionModel, ValidatableTrainingModel[np.floa
         grad_pred = (y_pred - y_true) / y_true.size
         return grad_pred
 
-    def __init__(self, model: ParameterizedModel) -> None:
+    def __init__(self, model: ParameterizedModel, optimizer: GradientOptimizer) -> None:
         self.model = model
+        self.optimizer = optimizer
 
 
     @override
@@ -125,7 +125,7 @@ class NonLinearRegressionModel(RegressionModel, ValidatableTrainingModel[np.floa
                     training_data_handler: TrainingData,
                     batch_size: int,
                     *,
-                    optimizer: GradientOptimizer | None = None,
+                    learning_rate: float = 0.001,
                     **_) -> np.floating:
         """
         Train the model for one epoch.
@@ -138,20 +138,20 @@ class NonLinearRegressionModel(RegressionModel, ValidatableTrainingModel[np.floa
             training_data (TrainingData): The training data handler object 
                                           containing training and validation data.
             batch_size (int): The size of each training batch.
+            learning_rate (float, optional): The learning rate for the optimizer.
+                                             Defaults to 0.001.
         Returns:
             float: The average loss over the epoch.
         """
         total_loss: np.floating = np.float64(0)
         shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-        if optimizer is None:
-            optimizer = Adam(0.001)
         for (x_data, y_true) in shuffled_batches:
             y_pred = self.model.forward(x_data)
             loss = self.compute_loss(y_pred, y_true)
             dloss_dout = NonLinearRegressionModel.grad_given_output(
                 y_true, y_pred)
             grad_params = self.model.loss_gradient_by_param(x_data, dloss_dout)
-            optimizer.stepwise_update(self.model, grad_params)
+            self.optimizer.stepwise_update(learning_rate, self.model, grad_params)
             total_loss += loss
         return total_loss / len(shuffled_batches)
 
