@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import numpy as np
 
 
@@ -67,3 +68,16 @@ def fid(mu1: np.ndarray, mu2: np.ndarray,
     tr2 = float(np.trace(cov2))
     fid_value = diff_term + tr1 + tr2 - 2.0 * trace_sqrt
     return fid_value
+
+
+def minimize_scalar(func: Callable) -> float:
+    """
+    Minimize a scalar function f: R -> R
+
+    Args:
+        func (Callable): The scalar function to minimize.
+
+    Returns:
+        float: The x value that minimizes the function.
+    """
+    raise NotImplementedError("Scalar minimization not implemented.")

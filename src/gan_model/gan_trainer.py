@@ -171,8 +171,12 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         Args:
             training_data_handler (TrainingData): an object for managing the training data
             batch_size (int): Minibatch size for real data and latent noise
-            gen_optimizer (GradientOptimizer): Optimizer for the generator.
-            disc_optimizer (GradientOptimizer): Optimizer for the discriminator.
+            gen_optimizer (GradientOptimizer | None): Optimizer for the generator.
+                                                      If None, defaults to Adam with lr=0.001.
+                                                      Defaults to None.
+            disc_optimizer (GradientOptimizer | None): Optimizer for the discriminator.
+                                                       If None, defaults to Adam with lr=0.001.
+                                                       Defaults to None.
             d_steps_per_one_g_step (int, optional): Number of discriminator steps per generator step
                                                     Defaults to 1.
 

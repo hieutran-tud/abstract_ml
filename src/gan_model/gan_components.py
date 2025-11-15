@@ -43,7 +43,7 @@ class Discriminator:
     model: ParameterizedModel
 
     def __init__(self, model: ParameterizedModel) -> None:
-        if model.output_dim != 1:
+        if model.output_dim() != 1:
             raise ValueError("Discriminator model must have output dimension of 1.")
         self.model = model
 
@@ -72,3 +72,32 @@ class Discriminator:
             np.ndarray: Class probabilities, shape (batch_size, 1), dtype float.
         """
         return logistic(self.logits(x))
+
+
+class Critic:
+    """
+    Critic model for WGAN: maps input x to a real-valued score C_phi(x) (no logistic).
+
+    Attributes:
+        model (ParameterizedModel): The underlying parameterized model used as the critic.
+                                    Must output a single scalar per sample (output_dim == 1).
+    """
+    model: ParameterizedModel
+
+    def __init__(self, model: ParameterizedModel) -> None:
+        if model.output_dim() != 1:
+            raise ValueError("Critic model must have output dimension of 1.")
+        self.model = model
+        self.model.lipschitz_normalize()
+
+    def score(self, x: np.ndarray) -> np.ndarray:
+        """
+        Compute C_phi(x), the critic score(s).
+
+        Args:
+            x (np.ndarray): Input data, shape (batch_size, data_dim), dtype float.
+
+        Returns:
+            np.ndarray: Scores, shape (batch_size, 1), dtype float.
+        """
+        return self.model.forward(x)

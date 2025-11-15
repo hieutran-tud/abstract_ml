@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 import numpy as np
 from ..utils.data_handler import TrainingData
@@ -263,6 +264,7 @@ class ValidatableTrainingModel(ABC, Generic[R]):
               training_data_handler: TrainingData,
               early_stopper: EarlyStopper,
               batch_size: int,
+              verbose: Callable | None = None,
               /, **kwargs) -> tuple[list[R], list[float]]:
         """
         Train the model for a specified number of epochs.
@@ -289,6 +291,11 @@ class ValidatableTrainingModel(ABC, Generic[R]):
             early_stopper.log_validation_loss(float(validation_loss))
             current_params = self.get_parameters()
             early_stopper.log_new_param(current_params)
+            if verbose is not None:
+                verbose(model = self,
+                        epoch = early_stopper.epoch_num,
+                        training_outcome = outcome,
+                        validation_loss = validation_loss)
         best_params = early_stopper.get_best_params()
         self.set_parameters(best_params)
         validation_losses = early_stopper.validation_losses

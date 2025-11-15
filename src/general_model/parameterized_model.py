@@ -91,3 +91,10 @@ class ParameterizedModel(ABC):
         Returns:
             int: The output dimension of the model.
         """
+
+    def lipschitz_normalize(self) -> None:
+        """
+        Normalize the model to have a Lipschitz constant of 1.
+        This is a placeholder method and should be implemented in subclasses if needed.
+        """
+        raise NotImplementedError("Lipschitz normalization not implemented for this model.")

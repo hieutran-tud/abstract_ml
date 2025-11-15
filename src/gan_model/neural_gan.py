@@ -1,5 +1,7 @@
+from collections.abc import Callable
 import numpy as np
 from .gan_trainer import GANTrainer
+from .wgan_trainer import WGANTrainer
 from ..mlp_structure.multi_layer_perceptron import MultiLayerPerceptron
 from ..utils import function_collections as fc
 from ..utils.data_handler import TrainingData
@@ -51,7 +53,8 @@ class NeuralGAN(GANTrainer):
         learning_rate: float = 0.001,
         d_steps_per_one_g_step: int = 1,
         validation_ratio: float = 0,
-        rand_gen: np.random.Generator = rng
+        rand_gen: np.random.Generator = rng,
+        verbose: Callable | None = None
     ) -> tuple[list, list[float]]:
         """
         Train the GAN model for a specified number of epochs using the provided real data
@@ -82,7 +85,87 @@ class NeuralGAN(GANTrainer):
             training_data_handler,
             early_stopper,
             batch_size,
+            verbose,
             gen_optimizer=gen_optimizer,
             disc_optimizer=disc_optimizer,
+            d_steps_per_one_g_step=d_steps_per_one_g_step,
+        )
+
+
+class NeuralWGAN(WGANTrainer):
+    """
+    Wasserstein GAN (WGAN) with neural network-based generator and critic (both MLPs).
+    Both networks use the same hidden-layer structure and activation functions.
+    1-Lipschitz enforcement is handled by the ParameterizedModel.lipschitz_normalize() method
+    (e.g., via spectral normalization inside the MLP).
+    """
+
+    def __init__(
+        self,
+        data_dim: int,
+        latent_dim: int,
+        hidden_layer: list[int],
+        activation: fc.RealDifferentialFunc = fc.leaky_relu,
+        rand_gen: np.random.Generator = rng
+    ) -> None:
+        gen_mlp = MultiLayerPerceptron(
+            [latent_dim] + hidden_layer + [data_dim],
+            activation,
+            rand_gen=rand_gen
+        )
+        critic_mlp = MultiLayerPerceptron(
+            [data_dim] + hidden_layer + [1],
+            activation,
+            rand_gen=rand_gen
+        )
+        noise_sampler = GaussianNoiseSampler(latent_dim, 0, 1, rand_gen)
+        super().__init__(
+            gen_model=gen_mlp,
+            critic_model=critic_mlp,
+            noise_sampler=noise_sampler
+        )
+
+    def train_model(
+        self,
+        real_data: np.ndarray,
+        epochs: int,
+        batch_size: int,
+        learning_rate: float = 1e-4,
+        d_steps_per_one_g_step: int = 5,
+        validation_ratio: float = 0.0,
+        rand_gen: np.random.Generator = rng,
+        verbose: Callable | None = None,
+    ) -> tuple[list, list[float]]:
+        """
+        Train the WGAN model for a specified number of epochs using the provided real data.
+        Uses Adam optimizers for both the generator and the critic.
+        After each epoch, the model is validated (FID) using the provided training data handler.
+
+        Args:
+            real_data (np.ndarray): Real training data, shape (num_samples, data_dim), dtype float.
+            epochs (int): Number of training epochs.
+            batch_size (int): Minibatch size.
+            learning_rate (float, optional): Learning rate for both optimizers. Defaults to 1e-4.
+            d_steps_per_one_g_step (int, optional): Critic steps per generator step. Defaults to 5.
+            validation_ratio (float, optional): Ratio of validation split. Defaults to 0.0.
+            rand_gen (np.random.Generator, optional): RNG. Defaults to rng.
+
+        Returns:
+            tuple[list, list[float]]: Training and validation losses for each epoch.
+        """
+        gen_optimizer = Adam(learning_rate)
+        critic_optimizer = Adam(learning_rate)
+        training_data_handler = TrainingData(
+            real_data, validation_ratio=validation_ratio, rand_gen=rand_gen
+        )
+        early_stopper = EarlyStopper(
+            max_epochs=epochs, patience=max(5, epochs // 10))
+        return super().train(
+            training_data_handler,
+            early_stopper,
+            batch_size,
+            verbose,
+            gen_optimizer=gen_optimizer,
+            critic_optimizer=critic_optimizer,
             d_steps_per_one_g_step=d_steps_per_one_g_step
         )
