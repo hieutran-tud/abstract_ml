@@ -153,7 +153,7 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         *,
         gen_learning_rate: float = 0.0001,
         disc_learning_rate: float = 0.0001,
-        d_steps_per_one_g_step: int = 5,
+        d_steps_per_one_g_step: int = 1,
         **_
     ) -> tuple[float, float]:
         """
@@ -178,14 +178,13 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
         """
         critic_losses: list[float] = []
         gen_losses: list[float] = []
+        sub_epochs = training_data_handler.full_training_size // batch_size
 
-        shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-
-        for (x_real,) in shuffled_batches:
-            b = x_real.shape[0]
-
+        for _ in range(sub_epochs):
+            # Critic steps
+            x_real, = training_data_handler.get_next_batch(batch_size)
             for _ in range(d_steps_per_one_g_step):
-                z_d = self.noise_sampler.sample(b)
+                z_d = self.noise_sampler.sample(batch_size)
                 x_fake_d = self.generator.generate(z_d)
 
                 scores_real = self.critic.score(x_real)
@@ -208,8 +207,8 @@ class WGANTrainer(ValidatableTrainingModel[tuple[float, float]]):
                     self.critic.model, total_grads_phi)
 
                 self.critic.model.lipschitz_normalize()
-
-            z_g = self.noise_sampler.sample(b)
+            # Generator step
+            z_g = self.noise_sampler.sample(batch_size)
             x_fake_g = self.generator.generate(z_g)
 
             scores_fake_g = self.critic.score(x_fake_g)

@@ -214,8 +214,9 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
             float: Average loss over the epoch.
         """
         total_loss: np.floating = np.float64(0)
-        shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-        for (x_data, y_true) in shuffled_batches:
+        sub_epochs = training_data_handler.full_training_size // batch_size
+        for _ in range(sub_epochs):
+            x_data, y_true = training_data_handler.get_next_batch(batch_size)
             logits = self.model.forward(x_data)
             loss = self.compute_loss_by_logits(y_true, logits)
             dloss_dlogits = ProbabilisticClassificationModel.grad_given_logits(
@@ -224,7 +225,7 @@ class ProbabilisticClassificationModel(ClassificationModel, ValidatableTrainingM
                 x_data, dloss_dlogits)
             self.optimizer.stepwise_update(learning_rate, self.model, grad_params)
             total_loss += loss
-        return total_loss / len(shuffled_batches)
+        return total_loss / sub_epochs
 
     def train_with_labels(self,
                           x_train: np.ndarray,

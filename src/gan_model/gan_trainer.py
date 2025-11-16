@@ -189,11 +189,10 @@ class GANTrainer(ValidatableTrainingModel[tuple[float, float]]):
 
         disc_losses: list[float] = []
         gen_losses: list[float] = []
+        sub_epochs = training_data_handler.full_training_size // batch_size
 
-        shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-
-        for (x_real,) in shuffled_batches:
-            batch_size = x_real.shape[0]
+        for _ in range(sub_epochs):
+            x_real, = training_data_handler.get_next_batch(batch_size)
             # Discriminator steps
             for _ in range(d_steps_per_one_g_step):
                 x_fake = self.generate(batch_size)

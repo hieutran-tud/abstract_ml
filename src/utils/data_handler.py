@@ -13,16 +13,6 @@ class TrainingData:
         full_training_size (int): The number of samples used for training.
     """
 
-    supervised: bool
-    full_training_size: int
-    original_training_data: np.ndarray
-    original_training_labels: np.ndarray | None
-    rand_gen: np.random.Generator
-    x_train: np.ndarray
-    y_train: np.ndarray | None
-    x_val: np.ndarray
-    y_val: np.ndarray | None
-
     def __init__(self,
                  training_data: np.ndarray,
                  training_labels: np.ndarray | None = None,
@@ -57,48 +47,66 @@ class TrainingData:
             validation_ind = np.sort(shuffle_ind[self.full_training_size:])
             self.x_val = training_data[validation_ind]
             self.y_val = training_labels[validation_ind] if training_labels is not None else None
+        self._batch_base = 0
+        self._batch_high_mask = np.zeros(self.full_training_size, dtype=bool)
 
-    def shuffle_and_divide(self,
-                           batch_size: int | None = None,
-                           always_shuffle: bool = False
-                           ) -> list[tuple[np.ndarray, ...]]:
+
+    def get_next_batch(self, batch_size: int | None = None) -> tuple[np.ndarray, ...]:
         """
-        Shuffle the training data and divide it into a list of mini-batches.
-        The number of batches is
-        N = floor(num_samples / batch_size). If the batch_size does not divide
-        the number of samples, the last few samples are distributed to the previous batches.
-        To get all samples in one batch, set batch_size to None or a value
-        greater than or equal to the number of training samples.
+        Get the next mini-batch of training data using a balanced sampler.
 
         Args:
-            batch_size (int | None): The size of each mini-batch. If None, use full training size.
-            always_shuffle (bool): If True, always shuffle the data even if using full batch.
+            batch_size (int | None): The size of the mini-batch.
+                                     If None or >= the number of training samples,
+                                     the full training data is returned.
+                                     Defaults to None.
 
         Returns:
-            list[tuple[np.ndarray, ...]]: A list of mini-batches, each as a tuple of arrays.
+            tuple[np.ndarray, ...]: The next mini-batch of training data and labels (if supervised).
 
         Raises:
-            ValueError: If batch_size is not a positive integer
+            ValueError: If batch_size is not a positive integer.
         """
         if batch_size is None or batch_size >= self.full_training_size:
-            batch_size = self.full_training_size
-            if not always_shuffle:
-                if self.y_train is not None:
-                    return [(self.x_train, self.y_train)]
-                return [(self.x_train,)]
+            if self.y_train is not None:
+                return self.x_train, self.y_train
+            return (self.x_train,)
         if batch_size <= 0:
             raise ValueError("batch_size must be a positive integer.")
-        batches_num = self.x_train.shape[0] // batch_size
+
+        base = self._batch_base
+        high_mask = self._batch_high_mask
+        low_mask = np.logical_not(high_mask)
+        have_low = np.any(low_mask)
+        minima_mask = low_mask if have_low else np.ones(self.full_training_size, dtype=bool)
+        indices_min = np.nonzero(minima_mask)[0]
+
+        if indices_min.size >= batch_size:
+            chosen = self.rand_gen.choice(indices_min, size=batch_size, replace=False)
+            if have_low:
+                high_mask[chosen] = True
+            else:
+                base += 1
+                high_mask[:] = False
+                high_mask[chosen] = True
+        else:
+            chosen_min = indices_min
+            remaining = batch_size - indices_min.size
+            others = np.nonzero(np.logical_not(minima_mask))[0]
+            extra = self.rand_gen.choice(others, size=remaining, replace=False)
+            chosen = np.concatenate([chosen_min, extra])
+            self.rand_gen.shuffle(chosen)
+            base += 1
+            high_mask[:] = False
+            high_mask[extra] = True
+        self._batch_base = base
+        self._batch_high_mask = high_mask
+
+        x_batch = self.x_train[chosen]
         if self.y_train is not None:
-            shuffle_index = self.rand_gen.permutation(self.x_train.shape[0])
-            x_train_shuffled = self.x_train[shuffle_index]
-            y_train_shuffled = self.y_train[shuffle_index]
-            x_batches = np.array_split(x_train_shuffled, batches_num)
-            y_batches = np.array_split(y_train_shuffled, batches_num)
-            return list(zip(x_batches, y_batches))
-        x_train_shuffled = self.rand_gen.permutation(self.x_train)
-        x_batches = np.array_split(x_train_shuffled, batches_num)
-        return list(zip(x_batches))
+            y_batch = self.y_train[chosen]
+            return x_batch, y_batch
+        return (x_batch,)
 
 
     def get_full_training_data(self) -> tuple[np.ndarray, ...]:

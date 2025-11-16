@@ -144,8 +144,9 @@ class NonLinearRegressionModel(RegressionModel, ValidatableTrainingModel[np.floa
             float: The average loss over the epoch.
         """
         total_loss: np.floating = np.float64(0)
-        shuffled_batches = training_data_handler.shuffle_and_divide(batch_size)
-        for (x_data, y_true) in shuffled_batches:
+        sub_epochs = training_data_handler.full_training_size // batch_size
+        for _ in range(sub_epochs):
+            x_data, y_true = training_data_handler.get_next_batch(batch_size)
             y_pred = self.model.forward(x_data)
             loss = self.compute_loss(y_pred, y_true)
             dloss_dout = NonLinearRegressionModel.grad_given_output(
@@ -153,7 +154,7 @@ class NonLinearRegressionModel(RegressionModel, ValidatableTrainingModel[np.floa
             grad_params = self.model.loss_gradient_by_param(x_data, dloss_dout)
             self.optimizer.stepwise_update(learning_rate, self.model, grad_params)
             total_loss += loss
-        return total_loss / len(shuffled_batches)
+        return total_loss / sub_epochs
 
     def validate(self, training_data_handler: TrainingData) -> np.floating:
         """
