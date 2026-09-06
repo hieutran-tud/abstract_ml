@@ -1,30 +1,39 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
 .Python
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
 
-# Virtual environments
+# Virtual environments and local configuration
 .venv/
 venv/
 ENV/
 env/
+.env
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Jupyter
+.ipynb_checkpoints/
 
-# Data files
+# Data and model artifacts
+data/mnist/
 *.idx3-ubyte
 *.idx1-ubyte
-src/mnist/data/
+*.npy
+*.npz
+checkpoints/
+artifacts/
 
-# IDE
+# Editors and operating systems
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
